@@ -1,0 +1,3 @@
+[submodule "easy-ai-proxy"]
+	path = easy-ai-proxy
+	url = https://github.com/OneCheung/easy-ai-proxy.git

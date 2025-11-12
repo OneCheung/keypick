@@ -97,8 +97,8 @@ deploy_cloudflare() {
         echo "KV namespace already configured"
     else
         echo "Creating KV namespace..."
-        KV_ID=$(wrangler kv:namespace create "CACHE" --preview=false | grep -o 'id = "[^"]*' | grep -o '[^"]*$')
-        KV_PREVIEW_ID=$(wrangler kv:namespace create "CACHE" --preview | grep -o 'preview_id = "[^"]*' | grep -o '[^"]*$')
+        KV_ID=$(wrangler kv namespace create "CACHE" --preview=false | grep -o 'id = "[^"]*' | grep -o '[^"]*$')
+        KV_PREVIEW_ID=$(wrangler kv namespace create "CACHE" --preview | grep -o 'preview_id = "[^"]*' | grep -o '[^"]*$')
 
         # Update wrangler.toml
         sed -i.bak "s/YOUR_KV_NAMESPACE_ID/$KV_ID/" wrangler.toml

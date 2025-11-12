@@ -1,0 +1,47 @@
+# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
+
+name: Fly Deploy
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Only deploy when relevant files change
+      - 'api/**'
+      - 'MediaCrawler/**'
+      - 'Dockerfile'
+      - 'fly.toml'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.github/workflows/fly-deploy.yml'
+
+jobs:
+  deploy:
+    name: Deploy app to Fly.io
+    runs-on: ubuntu-latest
+    concurrency: deploy-group    # Ensure only one deployment runs at a time
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Verify fly.toml exists
+        run: |
+          if [ ! -f "fly.toml" ]; then
+            echo "❌ fly.toml not found in root directory"
+            echo "Please copy deploy/fly/fly.toml to the root directory"
+            exit 1
+          fi
+          echo "✅ fly.toml found"
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Check deployment status
+        run: flyctl status
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

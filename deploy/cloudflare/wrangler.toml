@@ -12,35 +12,40 @@ vars = { BACKEND_URL = "http://localhost:8000" }
 [env.production]
 vars = { BACKEND_URL = "https://keypick.fly.dev" }
 
-# KV Namespace for caching
-[[kv_namespaces]]
+# KV Namespace for caching (must be in each environment)
+# Replace with your actual KV namespace IDs after creating them
+[[env.production.kv_namespaces]]
 binding = "CACHE"
-id = "YOUR_KV_NAMESPACE_ID"  # Replace with actual ID
-preview_id = "YOUR_KV_PREVIEW_ID"  # For development
+id = "YOUR_KV_NAMESPACE_ID"  # Replace with actual ID from: wrangler kv namespace create "CACHE"
 
-# Queue for async tasks
-[[queues.producers]]
-binding = "CRAWLER_QUEUE"
-queue = "keypick-crawler-queue"
+[[env.development.kv_namespaces]]
+binding = "CACHE"
+preview_id = "YOUR_KV_PREVIEW_ID"  # Replace with actual preview_id from: wrangler kv namespace create "CACHE" --preview
 
-[[queues.consumers]]
-queue = "keypick-crawler-queue"
-max_batch_size = 10
-max_batch_timeout = 30
+# Queue for async tasks (requires Workers Paid plan - $5/month)
+# Uncomment below if you have Workers Paid plan
+# [[queues.producers]]
+# binding = "CRAWLER_QUEUE"
+# queue = "keypick-crawler-queue"
+#
+# [[queues.consumers]]
+# queue = "keypick-crawler-queue"
+# max_batch_size = 10
+# max_batch_timeout = 30
 
 # Secrets (set via wrangler secret put)
 # KEYPICK_API_KEYS - Comma-separated list of valid API keys
 # INTERNAL_KEY - Secret key for backend communication
 
 # Routes (optional, can be configured in dashboard)
-# route = { pattern = "api.keypick.com/*", zone_name = "keypick.com" }
+# route = { pattern = "keypick.example.com/*", zone_name = "example.com" }
 
 # Usage model
-usage_model = "bundled"  # or "unbound" for longer execution
+usage_model = "bundled"  # or "unbound" for longer execution (requires paid plan)
 
-# Limits
-[limits]
-cpu_ms = 50  # Increase for paid plan
+# Limits (requires Workers Paid plan - comment out for free plan)
+# [limits]
+# cpu_ms = 50  # Only available on paid plan
 
 # Observability
 [observability]

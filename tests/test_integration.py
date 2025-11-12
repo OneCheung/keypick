@@ -201,8 +201,7 @@ class TestDataProcessor:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{BASE_URL}/api/process/transform",
-                json=test_data,
-                params={"output_format": "json"},
+                json={"data": test_data, "output_format": "json"},
             )
             assert response.status_code == 200
             data = response.json()
@@ -218,7 +217,9 @@ class TestDataProcessor:
         ]
 
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{BASE_URL}/api/process/validate", json=test_data)
+            response = await client.post(
+                f"{BASE_URL}/api/process/validate", json={"data": test_data}
+            )
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True

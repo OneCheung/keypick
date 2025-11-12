@@ -125,8 +125,15 @@ async def extract_insights(request: ExtractInsightsRequest) -> ExtractInsightsRe
         raise HTTPException(status_code=500, detail=f"Failed to extract insights: {str(e)}")
 
 
+class TransformDataRequest(BaseModel):
+    """Data transformation request"""
+
+    data: list[dict[str, Any]] = Field(..., description="Data to transform")
+    output_format: str = Field(default="json", description="Output format (json, csv, markdown)")
+
+
 @router.post("/transform")
-async def transform_data(data: list[dict[str, Any]], output_format: str = "json") -> dict[str, Any]:
+async def transform_data(request: TransformDataRequest) -> dict[str, Any]:
     """
     Transform data to different formats
 
@@ -137,9 +144,11 @@ async def transform_data(data: list[dict[str, Any]], output_format: str = "json"
     - Custom templates
     """
     try:
-        transformed = await processor_service.transform_data(data=data, output_format=output_format)
+        transformed = await processor_service.transform_data(
+            data=request.data, output_format=request.output_format
+        )
 
-        return {"success": True, "format": output_format, "data": transformed}
+        return {"success": True, "format": request.output_format, "data": transformed}
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -147,10 +156,15 @@ async def transform_data(data: list[dict[str, Any]], output_format: str = "json"
         raise HTTPException(status_code=500, detail=f"Failed to transform data: {str(e)}")
 
 
+class ValidateDataRequest(BaseModel):
+    """Data validation request"""
+
+    data: list[dict[str, Any]] = Field(..., description="Data to validate")
+    schema: dict[str, Any] | None = Field(default=None, description="Validation schema")
+
+
 @router.post("/validate")
-async def validate_data(
-    data: list[dict[str, Any]], schema: dict[str, Any] | None = None
-) -> dict[str, Any]:
+async def validate_data(request: ValidateDataRequest) -> dict[str, Any]:
     """
     Validate data against schema
 
@@ -158,7 +172,9 @@ async def validate_data(
     or default validation rules.
     """
     try:
-        validation_result = await processor_service.validate_data(data=data, schema=schema)
+        validation_result = await processor_service.validate_data(
+            data=request.data, schema=request.schema
+        )
 
         return {
             "success": True,

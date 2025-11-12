@@ -1,0 +1,79 @@
+# KeyPick Fly.io Configuration
+
+app = "keypick"
+primary_region = "sin"  # Singapore (close to China)
+# Alternative regions: hkg (Hong Kong), nrt (Tokyo)
+
+[build]
+  dockerfile = "../../Dockerfile"
+
+[env]
+  PORT = "8080"
+  ENVIRONMENT = "production"
+  PYTHONUNBUFFERED = "1"
+  # Public environment variables
+  LOG_LEVEL = "INFO"
+
+[experimental]
+  auto_rollback = true
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0  # Scale to 0 when idle
+  max_machines_running = 3  # Auto-scale up to 3 instances
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.tcp_checks]]
+    grace_period = "10s"
+    interval = "15s"
+    restart_limit = 0
+    timeout = "2s"
+
+  [[services.http_checks]]
+    interval = "30s"
+    grace_period = "5s"
+    method = "get"
+    path = "/health"
+    protocol = "http"
+    timeout = "2s"
+    tls_skip_verify = false
+    [services.http_checks.headers]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512  # Increase if needed
+
+# Persistent storage for logs and temp files
+[mounts]
+  source = "keypick_data"
+  destination = "/data"
+
+# Process groups
+[processes]
+  app = "uvicorn api.main:app --host 0.0.0.0 --port 8080"
+
+# Metrics endpoint for monitoring
+[metrics]
+  port = 9091
+  path = "/metrics"

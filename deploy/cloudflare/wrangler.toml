@@ -1,0 +1,51 @@
+# KeyPick Cloudflare Workers Configuration
+
+name = "keypick-gateway"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Development environment
+[env.development]
+vars = { BACKEND_URL = "http://localhost:8000" }
+
+# Production environment
+[env.production]
+vars = { BACKEND_URL = "https://keypick.fly.dev" }
+
+# KV Namespace for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "YOUR_KV_NAMESPACE_ID"  # Replace with actual ID
+preview_id = "YOUR_KV_PREVIEW_ID"  # For development
+
+# Queue for async tasks
+[[queues.producers]]
+binding = "CRAWLER_QUEUE"
+queue = "keypick-crawler-queue"
+
+[[queues.consumers]]
+queue = "keypick-crawler-queue"
+max_batch_size = 10
+max_batch_timeout = 30
+
+# Secrets (set via wrangler secret put)
+# KEYPICK_API_KEYS - Comma-separated list of valid API keys
+# INTERNAL_KEY - Secret key for backend communication
+
+# Routes (optional, can be configured in dashboard)
+# route = { pattern = "api.keypick.com/*", zone_name = "keypick.com" }
+
+# Usage model
+usage_model = "bundled"  # or "unbound" for longer execution
+
+# Limits
+[limits]
+cpu_ms = 50  # Increase for paid plan
+
+# Observability
+[observability]
+enabled = true
+
+# Triggers (optional)
+# [triggers]
+# crons = ["*/5 * * * *"]  # Run every 5 minutes

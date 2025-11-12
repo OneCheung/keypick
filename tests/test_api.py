@@ -81,7 +81,7 @@ async def test_crawl_request_validation():
         "/api/crawl/",
         json={"platform": "invalid_platform", "keywords": ["test"], "max_results": 10},
     )
-    assert response.status_code == 400
+    assert response.status_code == 422  # FastAPI validation error for invalid enum value
 
     # Test valid request (mock mode)
     response = client.post(

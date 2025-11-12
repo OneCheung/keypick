@@ -36,16 +36,28 @@ jobs:
           fi
           echo "✅ wrangler.toml found"
 
-      - name: Check KV namespace configuration
+      - name: Configure KV namespace IDs
         working-directory: deploy/cloudflare
         run: |
-          if grep -q "YOUR_KV_NAMESPACE_ID" wrangler.toml; then
-            echo "⚠️  Warning: KV namespace IDs are placeholders"
-            echo "Please create KV namespaces and update wrangler.toml before deploying"
-            echo "Run: wrangler kv namespace create 'CACHE'"
+          # Check if KV namespace IDs are provided via GitHub secrets
+          if [ -n "${{ secrets.KV_NAMESPACE_ID }}" ] && [ -n "${{ secrets.KV_NAMESPACE_PREVIEW_ID }}" ]; then
+            echo "✅ Using KV namespace IDs from GitHub secrets"
+            # Create a copy of wrangler.toml with actual IDs
+            cp wrangler.toml wrangler.toml.bak
+            sed -i "s/YOUR_KV_NAMESPACE_ID/${{ secrets.KV_NAMESPACE_ID }}/g" wrangler.toml
+            sed -i "s/YOUR_KV_PREVIEW_ID/${{ secrets.KV_NAMESPACE_PREVIEW_ID }}/g" wrangler.toml
+          elif grep -q "YOUR_KV_NAMESPACE_ID" wrangler.toml; then
+            echo "⚠️  Warning: KV namespace IDs are placeholders and no secrets are configured"
+            echo "Please add the following secrets to your GitHub repository:"
+            echo "  - KV_NAMESPACE_ID: Your production KV namespace ID"
+            echo "  - KV_NAMESPACE_PREVIEW_ID: Your preview KV namespace ID"
+            echo ""
+            echo "To get these IDs, run locally:"
+            echo "  wrangler kv namespace list"
             exit 1
+          else
+            echo "✅ KV namespace IDs already configured in wrangler.toml"
           fi
-          echo "✅ KV namespace IDs configured"
 
       - name: Deploy to Cloudflare Workers
         working-directory: deploy/cloudflare

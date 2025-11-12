@@ -160,7 +160,9 @@ class ValidateDataRequest(BaseModel):
     """Data validation request"""
 
     data: list[dict[str, Any]] = Field(..., description="Data to validate")
-    schema: dict[str, Any] | None = Field(default=None, description="Validation schema")
+    validation_schema: dict[str, Any] | None = Field(
+        default=None, description="Validation schema", alias="schema"
+    )
 
 
 @router.post("/validate")
@@ -173,7 +175,7 @@ async def validate_data(request: ValidateDataRequest) -> dict[str, Any]:
     """
     try:
         validation_result = await processor_service.validate_data(
-            data=request.data, schema=request.schema
+            data=request.data, schema=request.validation_schema
         )
 
         return {

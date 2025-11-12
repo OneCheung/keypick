@@ -1,0 +1,83 @@
+# Pre-commit hooks configuration for KeyPick
+# Install with: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Black - Code formatter
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: [--line-length=100]
+        exclude: ^(MediaCrawler/|easy-ai-proxy/)
+
+  # Ruff - Fast Python linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^(MediaCrawler/|easy-ai-proxy/)
+      - id: ruff-format
+        exclude: ^(MediaCrawler/|easy-ai-proxy/)
+
+  # MyPy - Static type checker
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^api/
+        args: [--python-version=3.12]
+        additional_dependencies:
+          - types-redis
+          - types-requests
+          - pydantic
+
+  # Check for merge conflicts
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: ^(MediaCrawler/|easy-ai-proxy/)
+      - id: trailing-whitespace
+        exclude: ^(MediaCrawler/|easy-ai-proxy/)
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: debug-statements
+      - id: detect-private-key
+
+  # Check for secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: ^(MediaCrawler/|easy-ai-proxy/|.*\.lock$)
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+        exclude: ^(MediaCrawler/|easy-ai-proxy/)
+
+# Configuration for specific hooks
+default_language_version:
+  python: python3.12
+
+# Don't run on submodules
+exclude: ^(MediaCrawler/|easy-ai-proxy/)
+
+# Stages to run (optional)
+default_stages: [pre-commit, pre-push]
+
+# Fail fast on first error
+fail_fast: false

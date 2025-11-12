@@ -2,12 +2,13 @@
 Dify tools API endpoints
 """
 
-from typing import Dict, Any, Optional, List
-from fastapi import APIRouter, HTTPException, Header
+from typing import Any
+
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from api.services.dify_service import DifyService
 from api.models.platform import PlatformType
+from api.services.dify_service import DifyService
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ dify_service = DifyService()
 
 class DifyCrawlRequest(BaseModel):
     """Dify crawl tool request format"""
+
     platform: str = Field(..., description="Platform to crawl (weibo, xiaohongshu, douyin)")
     keywords: str = Field(..., description="Keywords to search (comma-separated)")
     max_results: int = Field(default=100, description="Maximum results to fetch")
@@ -25,24 +27,25 @@ class DifyCrawlRequest(BaseModel):
 
 class DifyCrawlResponse(BaseModel):
     """Dify crawl tool response format"""
+
     success: bool
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    task_id: Optional[str] = None
+    data: dict[str, Any] | None = None
+    error: str | None = None
+    task_id: str | None = None
 
 
 class DifyToolSchema(BaseModel):
     """Dify tool schema definition"""
+
     name: str
     description: str
-    parameters: List[Dict[str, Any]]
-    response: Dict[str, Any]
+    parameters: list[dict[str, Any]]
+    response: dict[str, Any]
 
 
 @router.post("/dify/crawl", response_model=DifyCrawlResponse)
 async def dify_crawl_tool(
-    request: DifyCrawlRequest,
-    authorization: Optional[str] = Header(None)
+    request: DifyCrawlRequest, authorization: str | None = Header(None)
 ) -> DifyCrawlResponse:
     """
     Dify-compatible crawl tool endpoint
@@ -62,44 +65,31 @@ async def dify_crawl_tool(
         # Validate platform
         if request.platform not in [p.value for p in PlatformType]:
             return DifyCrawlResponse(
-                success=False,
-                error=f"Unsupported platform: {request.platform}"
+                success=False, error=f"Unsupported platform: {request.platform}"
             )
 
         # Execute crawl
         if request.async_mode:
             # Async mode - return task ID immediately
             task_id = await dify_service.start_crawl_task(
-                platform=request.platform,
-                keywords=keywords,
-                max_results=request.max_results
+                platform=request.platform, keywords=keywords, max_results=request.max_results
             )
 
             return DifyCrawlResponse(
-                success=True,
-                task_id=task_id,
-                data={"status": "processing", "task_id": task_id}
+                success=True, task_id=task_id, data={"status": "processing", "task_id": task_id}
             )
         else:
             # Sync mode - wait for results
             result = await dify_service.crawl_sync(
-                platform=request.platform,
-                keywords=keywords,
-                max_results=request.max_results
+                platform=request.platform, keywords=keywords, max_results=request.max_results
             )
 
-            return DifyCrawlResponse(
-                success=True,
-                data=result
-            )
+            return DifyCrawlResponse(success=True, data=result)
 
     except HTTPException:
         raise
     except Exception as e:
-        return DifyCrawlResponse(
-            success=False,
-            error=str(e)
-        )
+        return DifyCrawlResponse(success=False, error=str(e))
 
 
 @router.get("/dify/schema", response_model=DifyToolSchema)
@@ -119,13 +109,13 @@ async def get_dify_tool_schema() -> DifyToolSchema:
                 "type": "string",
                 "description": "Platform to crawl",
                 "required": True,
-                "enum": ["weibo", "xiaohongshu", "douyin"]
+                "enum": ["weibo", "xiaohongshu", "douyin"],
             },
             {
                 "name": "keywords",
                 "type": "string",
                 "description": "Comma-separated keywords to search",
-                "required": True
+                "required": True,
             },
             {
                 "name": "max_results",
@@ -134,15 +124,15 @@ async def get_dify_tool_schema() -> DifyToolSchema:
                 "required": False,
                 "default": 100,
                 "minimum": 1,
-                "maximum": 1000
+                "maximum": 1000,
             },
             {
                 "name": "async_mode",
                 "type": "boolean",
                 "description": "Run in async mode",
                 "required": False,
-                "default": False
-            }
+                "default": False,
+            },
         ],
         response={
             "type": "object",
@@ -150,17 +140,16 @@ async def get_dify_tool_schema() -> DifyToolSchema:
                 "success": {"type": "boolean"},
                 "data": {"type": "object"},
                 "error": {"type": "string"},
-                "task_id": {"type": "string"}
-            }
-        }
+                "task_id": {"type": "string"},
+            },
+        },
     )
 
 
 @router.get("/dify/task/{task_id}")
 async def get_dify_task_status(
-    task_id: str,
-    authorization: Optional[str] = Header(None)
-) -> Dict[str, Any]:
+    task_id: str, authorization: str | None = Header(None)
+) -> dict[str, Any]:
     """
     Get Dify task status
 
@@ -183,7 +172,7 @@ async def get_dify_task_status(
             "status": status.get("status"),
             "progress": status.get("progress"),
             "result": status.get("result"),
-            "error": status.get("error")
+            "error": status.get("error"),
         }
 
     except HTTPException:
@@ -194,9 +183,8 @@ async def get_dify_task_status(
 
 @router.post("/dify/webhook")
 async def dify_webhook(
-    event: Dict[str, Any],
-    authorization: Optional[str] = Header(None)
-) -> Dict[str, Any]:
+    event: dict[str, Any], authorization: str | None = Header(None)
+) -> dict[str, Any]:
     """
     Dify webhook endpoint
 
@@ -211,11 +199,7 @@ async def dify_webhook(
         # Process webhook event
         result = await dify_service.process_webhook(event)
 
-        return {
-            "success": True,
-            "message": "Webhook processed successfully",
-            "result": result
-        }
+        return {"success": True, "message": "Webhook processed successfully", "result": result}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process webhook: {str(e)}")

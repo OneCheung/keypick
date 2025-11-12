@@ -3,11 +3,10 @@ KeyPick API 集成测试套件
 包含完整的 API 功能测试
 """
 
-import pytest
-import httpx
 import asyncio
-from typing import Dict, Any
-from datetime import datetime
+
+import httpx
+import pytest
 
 # 测试配置
 BASE_URL = "http://localhost:8000"
@@ -79,11 +78,7 @@ class TestCrawlerAPI:
             # 测试小红书爬取
             response = await client.post(
                 f"{BASE_URL}/api/crawl/",
-                json={
-                    "platform": "xiaohongshu",
-                    "keywords": ["测试"],
-                    "max_results": 5
-                }
+                json={"platform": "xiaohongshu", "keywords": ["测试"], "max_results": 5},
             )
             assert response.status_code == 200
             data = response.json()
@@ -100,11 +95,7 @@ class TestCrawlerAPI:
             # 先创建任务
             create_response = await client.post(
                 f"{BASE_URL}/api/crawl/",
-                json={
-                    "platform": "weibo",
-                    "keywords": ["测试"],
-                    "max_results": 3
-                }
+                json={"platform": "weibo", "keywords": ["测试"], "max_results": 3},
             )
             task_id = create_response.json()["task_id"]
 
@@ -125,11 +116,7 @@ class TestCrawlerAPI:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{BASE_URL}/api/crawl/",
-                json={
-                    "platform": "invalid_platform",
-                    "keywords": ["test"],
-                    "max_results": 10
-                }
+                json={"platform": "invalid_platform", "keywords": ["test"], "max_results": 10},
             )
             # FastAPI 返回 422 用于验证错误
             assert response.status_code == 422
@@ -143,11 +130,7 @@ class TestCrawlerAPI:
             for platform in platforms:
                 response = await client.post(
                     f"{BASE_URL}/api/crawl/",
-                    json={
-                        "platform": platform,
-                        "keywords": ["测试", "KeyPick"],
-                        "max_results": 2
-                    }
+                    json={"platform": platform, "keywords": ["测试", "KeyPick"], "max_results": 2},
                 )
                 assert response.status_code == 200
                 data = response.json()
@@ -178,11 +161,7 @@ class TestDataProcessor:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{BASE_URL}/api/process/clean",
-                json={
-                    "data": test_data,
-                    "remove_duplicates": True,
-                    "normalize": True
-                }
+                json={"data": test_data, "remove_duplicates": True, "normalize": True},
             )
             assert response.status_code == 200
             data = response.json()
@@ -202,11 +181,7 @@ class TestDataProcessor:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{BASE_URL}/api/process/extract",
-                json={
-                    "data": test_data,
-                    "analysis_type": "summary",
-                    "use_llm": False
-                }
+                json={"data": test_data, "analysis_type": "summary", "use_llm": False},
             )
             assert response.status_code == 200
             data = response.json()
@@ -227,7 +202,7 @@ class TestDataProcessor:
             response = await client.post(
                 f"{BASE_URL}/api/process/transform",
                 json=test_data,
-                params={"output_format": "json"}
+                params={"output_format": "json"},
             )
             assert response.status_code == 200
             data = response.json()
@@ -243,10 +218,7 @@ class TestDataProcessor:
         ]
 
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{BASE_URL}/api/process/validate",
-                json=test_data
-            )
+            response = await client.post(f"{BASE_URL}/api/process/validate", json=test_data)
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
@@ -281,8 +253,8 @@ class TestDifyIntegration:
                     "platform": "xiaohongshu",
                     "keywords": "test,keyword",
                     "max_results": 5,
-                    "async_mode": False
-                }
+                    "async_mode": False,
+                },
             )
             # 开发环境可能允许无认证访问
             assert response.status_code in [200, 401]
@@ -290,10 +262,7 @@ class TestDifyIntegration:
     @pytest.mark.asyncio
     async def test_dify_crawl_with_auth(self):
         """测试带认证的 Dify 爬取"""
-        headers = {
-            "Authorization": f"Bearer {TEST_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {TEST_API_KEY}", "Content-Type": "application/json"}
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -302,9 +271,9 @@ class TestDifyIntegration:
                     "platform": "xiaohongshu",
                     "keywords": "test",
                     "max_results": 3,
-                    "async_mode": False
+                    "async_mode": False,
                 },
-                headers=headers
+                headers=headers,
             )
             # 根据配置可能返回 200 或 401
             if response.status_code == 200:
@@ -317,10 +286,7 @@ class TestDifyIntegration:
     @pytest.mark.asyncio
     async def test_dify_async_mode(self):
         """测试 Dify 异步模式"""
-        headers = {
-            "Authorization": f"Bearer {TEST_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {TEST_API_KEY}", "Content-Type": "application/json"}
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -329,9 +295,9 @@ class TestDifyIntegration:
                     "platform": "weibo",
                     "keywords": "test",
                     "max_results": 2,
-                    "async_mode": True
+                    "async_mode": True,
                 },
-                headers=headers
+                headers=headers,
             )
             if response.status_code == 200:
                 data = response.json()
@@ -352,11 +318,7 @@ class TestPerformance:
             for i in range(3):
                 task = client.post(
                     f"{BASE_URL}/api/crawl/",
-                    json={
-                        "platform": "xiaohongshu",
-                        "keywords": [f"test_{i}"],
-                        "max_results": 2
-                    }
+                    json={"platform": "xiaohongshu", "keywords": [f"test_{i}"], "max_results": 2},
                 )
                 tasks.append(task)
 
@@ -409,11 +371,7 @@ async def test_full_workflow():
         platform = platforms[0]["id"]
         crawl_response = await client.post(
             f"{BASE_URL}/api/crawl/",
-            json={
-                "platform": platform,
-                "keywords": ["测试工作流"],
-                "max_results": 3
-            }
+            json={"platform": platform, "keywords": ["测试工作流"], "max_results": 3},
         )
         assert crawl_response.status_code == 200
         task_id = crawl_response.json()["task_id"]
@@ -430,21 +388,13 @@ async def test_full_workflow():
 
             # 清洗数据
             clean_response = await client.post(
-                f"{BASE_URL}/api/process/clean",
-                json={
-                    "data": items,
-                    "remove_duplicates": True
-                }
+                f"{BASE_URL}/api/process/clean", json={"data": items, "remove_duplicates": True}
             )
             assert clean_response.status_code == 200
 
             # 提取洞察
             insights_response = await client.post(
                 f"{BASE_URL}/api/process/extract",
-                json={
-                    "data": items,
-                    "analysis_type": "summary",
-                    "use_llm": False
-                }
+                json={"data": items, "analysis_type": "summary", "use_llm": False},
             )
             assert insights_response.status_code == 200

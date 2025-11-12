@@ -4,8 +4,8 @@ Basic API tests
 
 import pytest
 from fastapi.testclient import TestClient
-from api.main import app
 
+from api.main import app
 
 client = TestClient(app)
 
@@ -77,19 +77,17 @@ async def test_crawl_request_validation():
     assert response.status_code == 422  # Validation error
 
     # Test invalid platform
-    response = client.post("/api/crawl/", json={
-        "platform": "invalid_platform",
-        "keywords": ["test"],
-        "max_results": 10
-    })
+    response = client.post(
+        "/api/crawl/",
+        json={"platform": "invalid_platform", "keywords": ["test"], "max_results": 10},
+    )
     assert response.status_code == 400
 
     # Test valid request (mock mode)
-    response = client.post("/api/crawl/", json={
-        "platform": "xiaohongshu",
-        "keywords": ["test", "keyword"],
-        "max_results": 10
-    })
+    response = client.post(
+        "/api/crawl/",
+        json={"platform": "xiaohongshu", "keywords": ["test", "keyword"], "max_results": 10},
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
@@ -106,10 +104,9 @@ async def test_data_cleaning():
         {"id": "1", "content": "test1"},  # Duplicate
     ]
 
-    response = client.post("/api/process/clean", json={
-        "data": test_data,
-        "remove_duplicates": True
-    })
+    response = client.post(
+        "/api/process/clean", json={"data": test_data, "remove_duplicates": True}
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -122,12 +119,15 @@ async def test_data_cleaning():
 @pytest.mark.asyncio
 async def test_dify_crawl_tool():
     """Test Dify crawl tool endpoint"""
-    response = client.post("/api/tools/dify/crawl", json={
-        "platform": "xiaohongshu",
-        "keywords": "test,keyword",
-        "max_results": 10,
-        "async_mode": False
-    })
+    response = client.post(
+        "/api/tools/dify/crawl",
+        json={
+            "platform": "xiaohongshu",
+            "keywords": "test,keyword",
+            "max_results": 10,
+            "async_mode": False,
+        },
+    )
 
     assert response.status_code == 200
     data = response.json()

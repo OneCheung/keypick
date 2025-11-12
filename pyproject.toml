@@ -179,6 +179,21 @@ exclude = [
     "MediaCrawler",
     "easy-ai-proxy",
 ]
+# Ignore some common type errors from third-party libraries
+[[tool.mypy.overrides]]
+module = [
+    "supabase.*",
+    "langfuse.*",
+]
+ignore_errors = true
+
+# Ignore type errors in services that use third-party libraries with incomplete type stubs
+[[tool.mypy.overrides]]
+module = [
+    "api.services.supabase_service",
+    "api.services.langfuse_service",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -4,9 +4,9 @@ Data processing service
 
 import hashlib
 import json
-from typing import List, Dict, Any, Optional, Set
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,11 @@ class ProcessorService:
 
     async def clean_data(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         remove_duplicates: bool = True,
         normalize: bool = True,
-        extract_fields: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+        extract_fields: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Clean and normalize data
 
@@ -57,11 +57,8 @@ class ProcessorService:
             raise
 
     async def extract_insights(
-        self,
-        data: List[Dict[str, Any]],
-        analysis_type: str = "summary",
-        use_llm: bool = True
-    ) -> Dict[str, Any]:
+        self, data: list[dict[str, Any]], analysis_type: str = "summary", use_llm: bool = True
+    ) -> dict[str, Any]:
         """
         Extract insights from data
 
@@ -77,7 +74,7 @@ class ProcessorService:
             insights = {
                 "total_items": len(data),
                 "analysis_type": analysis_type,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
             # Basic statistical analysis
@@ -103,18 +100,14 @@ class ProcessorService:
                 "insights": insights,
                 "summary": insights.get("summary", ""),
                 "keywords": insights.get("keywords", []),
-                "trends": insights.get("trends")
+                "trends": insights.get("trends"),
             }
 
         except Exception as e:
             logger.error(f"Insight extraction failed: {str(e)}")
             raise
 
-    async def transform_data(
-        self,
-        data: List[Dict[str, Any]],
-        output_format: str = "json"
-    ) -> Any:
+    async def transform_data(self, data: list[dict[str, Any]], output_format: str = "json") -> Any:
         """
         Transform data to different formats
 
@@ -140,10 +133,8 @@ class ProcessorService:
             raise
 
     async def validate_data(
-        self,
-        data: List[Dict[str, Any]],
-        schema: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, data: list[dict[str, Any]], schema: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Validate data against schema
 
@@ -155,8 +146,8 @@ class ProcessorService:
             Validation results
         """
         try:
-            errors = []
-            warnings = []
+            errors: list[str] = []
+            warnings: list[str] = []
             valid_count = 0
 
             for i, item in enumerate(data):
@@ -173,24 +164,22 @@ class ProcessorService:
                 "stats": {
                     "total_items": len(data),
                     "valid_items": valid_count,
-                    "invalid_items": len(data) - valid_count
-                }
+                    "invalid_items": len(data) - valid_count,
+                },
             }
 
         except Exception as e:
             logger.error(f"Data validation failed: {str(e)}")
             raise
 
-    def _remove_duplicates(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _remove_duplicates(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Remove duplicate items based on content hash"""
-        seen: Set[str] = set()
+        seen: set[str] = set()
         unique_data = []
 
         for item in data:
             # Create hash of item content
-            item_hash = hashlib.md5(
-                json.dumps(item, sort_keys=True).encode()
-            ).hexdigest()
+            item_hash = hashlib.md5(json.dumps(item, sort_keys=True).encode()).hexdigest()
 
             if item_hash not in seen:
                 seen.add(item_hash)
@@ -198,12 +187,12 @@ class ProcessorService:
 
         return unique_data
 
-    def _normalize_data(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _normalize_data(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Normalize data formats"""
-        normalized = []
+        normalized: list[dict[str, Any]] = []
 
         for item in data:
-            normalized_item = {}
+            normalized_item: dict[str, Any] = {}
 
             # Normalize common fields
             for key, value in item.items():
@@ -227,10 +216,8 @@ class ProcessorService:
         return normalized
 
     def _extract_fields(
-        self,
-        data: List[Dict[str, Any]],
-        fields: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, data: list[dict[str, Any]], fields: list[str]
+    ) -> list[dict[str, Any]]:
         """Extract specific fields from data"""
         extracted = []
 
@@ -244,44 +231,39 @@ class ProcessorService:
 
         return extracted
 
-    def _analyze_statistics(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _analyze_statistics(self, data: list[dict[str, Any]]) -> dict[str, Any]:
         """Analyze basic statistics"""
-        stats = {
-            "item_count": len(data),
-            "platforms": {},
-            "date_range": {}
-        }
+        stats: dict[str, Any] = {"item_count": len(data), "platforms": {}, "date_range": {}}
 
         # Count by platform
         for item in data:
             platform = item.get("platform", "unknown")
-            stats["platforms"][platform] = stats["platforms"].get(platform, 0) + 1
+            platforms_dict: dict[str, int] = stats["platforms"]  # type: ignore[assignment]
+            platforms_dict[platform] = platforms_dict.get(platform, 0) + 1
 
         return stats
 
-    def _extract_keywords(self, data: List[Dict[str, Any]]) -> List[str]:
+    def _extract_keywords(self, data: list[dict[str, Any]]) -> list[str]:
         """Extract keywords from data"""
         # Simple keyword extraction for MVP
         keywords = set()
 
         for item in data:
             # Extract from tags
-            if "tags" in item:
-                if isinstance(item["tags"], list):
-                    keywords.update(item["tags"])
+            if "tags" in item and isinstance(item["tags"], list):
+                keywords.update(item["tags"])
 
             # Extract from hashtags
-            if "hashtags" in item:
-                if isinstance(item["hashtags"], list):
-                    keywords.update(item["hashtags"])
+            if "hashtags" in item and isinstance(item["hashtags"], list):
+                keywords.update(item["hashtags"])
 
         return list(keywords)[:20]  # Return top 20 keywords
 
-    def _generate_summary(self, data: List[Dict[str, Any]]) -> str:
+    def _generate_summary(self, data: list[dict[str, Any]]) -> str:
         """Generate summary of data"""
         # Simple summary for MVP
         total = len(data)
-        platforms = set(item.get("platform", "unknown") for item in data)
+        platforms = {item.get("platform", "unknown") for item in data}
 
         return (
             f"Analyzed {total} items from {len(platforms)} platform(s): "
@@ -289,13 +271,13 @@ class ProcessorService:
             f"Data contains various social media posts and content."
         )
 
-    def _analyze_trends(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _analyze_trends(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Analyze trends in data"""
         # Simple trend analysis for MVP
-        trends = []
+        trends: list[dict[str, Any]] = []
 
         # Count hashtags/tags frequency
-        tag_counts = {}
+        tag_counts: dict[str, int] = {}
         for item in data:
             tags = item.get("tags", []) + item.get("hashtags", [])
             for tag in tags:
@@ -303,22 +285,18 @@ class ProcessorService:
 
         # Get top trends
         for tag, count in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
-            trends.append({
-                "topic": tag,
-                "count": count,
-                "trend": "rising"  # Simplified for MVP
-            })
+            trends.append({"topic": tag, "count": count, "trend": "rising"})  # Simplified for MVP
 
         return trends
 
-    def _analyze_sentiment(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _analyze_sentiment(self, data: list[dict[str, Any]]) -> dict[str, Any]:
         """Analyze sentiment of data"""
         # Simplified sentiment analysis for MVP
         return {
             "positive": 0.4,
             "neutral": 0.5,
             "negative": 0.1,
-            "note": "Sentiment analysis will be enhanced with LLM integration"
+            "note": "Sentiment analysis will be enhanced with LLM integration",
         }
 
     def _normalize_date(self, value: Any) -> str:
@@ -328,13 +306,13 @@ class ProcessorService:
             return value
         return str(value)
 
-    def _to_csv(self, data: List[Dict[str, Any]]) -> str:
+    def _to_csv(self, data: list[dict[str, Any]]) -> str:
         """Convert data to CSV format"""
         if not data:
             return ""
 
         # Get all unique keys
-        keys = set()
+        keys: set[str] = set()
         for item in data:
             keys.update(item.keys())
 
@@ -346,7 +324,7 @@ class ProcessorService:
 
         return "\n".join(csv_lines)
 
-    def _to_markdown(self, data: List[Dict[str, Any]]) -> str:
+    def _to_markdown(self, data: list[dict[str, Any]]) -> str:
         """Convert data to Markdown format"""
         if not data:
             return "# No Data"
@@ -364,11 +342,7 @@ class ProcessorService:
 
         return "\n".join(md_lines)
 
-    def _validate_item(
-        self,
-        item: Dict[str, Any],
-        schema: Optional[Dict[str, Any]]
-    ) -> List[str]:
+    def _validate_item(self, item: dict[str, Any], schema: dict[str, Any] | None) -> list[str]:
         """Validate a single item"""
         errors = []
 

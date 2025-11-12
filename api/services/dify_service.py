@@ -2,11 +2,11 @@
 Dify integration service
 """
 
-import uuid
-import json
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import logging
+import uuid
+from datetime import datetime
+from typing import Any
+
 import httpx
 
 from api.config import settings
@@ -32,7 +32,7 @@ class DifyService:
         self.crawler_service = CrawlerService()
         self.tasks = {}
 
-    def validate_auth(self, authorization: Optional[str]) -> bool:
+    def validate_auth(self, authorization: str | None) -> bool:
         """
         验证来自 Dify 的请求（使用 KeyPick 自己的 API Key）
 
@@ -57,12 +57,7 @@ class DifyService:
         # 验证是否是有效的 KeyPick API Key
         return token in self.keypick_api_keys
 
-    async def start_crawl_task(
-        self,
-        platform: str,
-        keywords: List[str],
-        max_results: int
-    ) -> str:
+    async def start_crawl_task(self, platform: str, keywords: list[str], max_results: int) -> str:
         """
         Start an async crawl task
 
@@ -79,10 +74,7 @@ class DifyService:
 
             # Start crawler task
             await self.crawler_service.execute_crawl(
-                task_id=task_id,
-                platform=platform,
-                keywords=keywords,
-                max_results=max_results
+                task_id=task_id, platform=platform, keywords=keywords, max_results=max_results
             )
 
             # Store task info
@@ -90,7 +82,7 @@ class DifyService:
                 "status": "processing",
                 "started_at": datetime.utcnow().isoformat(),
                 "platform": platform,
-                "keywords": keywords
+                "keywords": keywords,
             }
 
             return task_id
@@ -100,11 +92,8 @@ class DifyService:
             raise
 
     async def crawl_sync(
-        self,
-        platform: str,
-        keywords: List[str],
-        max_results: int
-    ) -> Dict[str, Any]:
+        self, platform: str, keywords: list[str], max_results: int
+    ) -> dict[str, Any]:
         """
         Execute synchronous crawl
 
@@ -121,10 +110,7 @@ class DifyService:
 
             # Execute crawl synchronously
             result = await self.crawler_service.execute_crawl(
-                task_id=task_id,
-                platform=platform,
-                keywords=keywords,
-                max_results=max_results
+                task_id=task_id, platform=platform, keywords=keywords, max_results=max_results
             )
 
             # Format for Dify
@@ -134,7 +120,7 @@ class DifyService:
             logger.error(f"Sync crawl failed: {str(e)}")
             raise
 
-    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """
         Get task status
 
@@ -151,13 +137,17 @@ class DifyService:
             return {
                 "status": task_info.get("status"),
                 "progress": task_info.get("progress", 0),
-                "result": self._format_for_dify(task_info.get("result")) if task_info.get("result") else None,
-                "error": task_info.get("error")
+                "result": (
+                    self._format_for_dify(task_info.get("result"))
+                    if task_info.get("result")
+                    else None
+                ),
+                "error": task_info.get("error"),
             }
 
         return None
 
-    async def process_webhook(self, event: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_webhook(self, event: dict[str, Any]) -> dict[str, Any]:
         """
         Process webhook from Dify
 
@@ -190,11 +180,7 @@ class DifyService:
             logger.error(f"Webhook processing failed: {str(e)}")
             raise
 
-    async def call_dify_workflow(
-        self,
-        workflow_id: str,
-        inputs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def call_dify_workflow(self, workflow_id: str, inputs: dict[str, Any]) -> dict[str, Any]:
         """
         Call a Dify workflow
 
@@ -206,31 +192,30 @@ class DifyService:
             Workflow response
         """
         try:
+            if not self.dify_crawler_key:
+                raise ValueError("Dify crawler key not configured")
             headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
+                "Authorization": f"Bearer {self.dify_crawler_key}",
+                "Content-Type": "application/json",
             }
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.api_url}/workflows/{workflow_id}/run",
+                    f"{self.dify_api_url}/workflows/{workflow_id}/run",
                     headers=headers,
-                    json={"inputs": inputs}
+                    json={"inputs": inputs},
                 )
 
                 response.raise_for_status()
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(f"Failed to call Dify workflow: {str(e)}")
             raise
 
     async def call_dify_agent(
-        self,
-        agent_id: str,
-        message: str,
-        conversation_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, agent_id: str, message: str, conversation_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Call a Dify agent
 
@@ -243,34 +228,31 @@ class DifyService:
             Agent response
         """
         try:
+            if not self.dify_crawler_key:
+                raise ValueError("Dify crawler key not configured")
             headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
+                "Authorization": f"Bearer {self.dify_crawler_key}",
+                "Content-Type": "application/json",
             }
 
-            payload = {
-                "message": message,
-                "user": "keypick_api"
-            }
+            payload = {"message": message, "user": "keypick_api"}
 
             if conversation_id:
                 payload["conversation_id"] = conversation_id
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.api_url}/agents/{agent_id}/chat",
-                    headers=headers,
-                    json=payload
+                    f"{self.dify_api_url}/agents/{agent_id}/chat", headers=headers, json=payload
                 )
 
                 response.raise_for_status()
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(f"Failed to call Dify agent: {str(e)}")
             raise
 
-    def _format_for_dify(self, data: Any) -> Dict[str, Any]:
+    def _format_for_dify(self, data: Any) -> dict[str, Any]:
         """
         Format data for Dify consumption
 
@@ -285,12 +267,12 @@ class DifyService:
 
         # Ensure data is JSON-serializable
         if isinstance(data, dict):
-            formatted = {}
+            formatted: dict[str, Any] = {}
             for key, value in data.items():
                 if isinstance(value, (datetime,)):
                     formatted[key] = value.isoformat()
                 elif isinstance(value, (dict, list, str, int, float, bool, type(None))):
-                    formatted[key] = value
+                    formatted[key] = value  # type: ignore[assignment]
                 else:
                     formatted[key] = str(value)
             return formatted
@@ -299,7 +281,7 @@ class DifyService:
         else:
             return {"data": data}
 
-    async def _handle_workflow_completed(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_workflow_completed(self, data: dict[str, Any]) -> dict[str, Any]:
         """Handle workflow completion event"""
         workflow_id = data.get("workflow_id")
         outputs = data.get("outputs", {})
@@ -312,10 +294,10 @@ class DifyService:
         return {
             "status": "processed",
             "workflow_id": workflow_id,
-            "message": "Workflow completion handled"
+            "message": "Workflow completion handled",
         }
 
-    async def _handle_workflow_failed(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_workflow_failed(self, data: dict[str, Any]) -> dict[str, Any]:
         """Handle workflow failure event"""
         workflow_id = data.get("workflow_id")
         error = data.get("error", "Unknown error")
@@ -327,10 +309,10 @@ class DifyService:
         return {
             "status": "processed",
             "workflow_id": workflow_id,
-            "message": "Workflow failure handled"
+            "message": "Workflow failure handled",
         }
 
-    async def _handle_agent_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_agent_message(self, data: dict[str, Any]) -> dict[str, Any]:
         """Handle agent message event"""
         agent_id = data.get("agent_id")
         message = data.get("message", "")
@@ -344,5 +326,5 @@ class DifyService:
             "status": "processed",
             "agent_id": agent_id,
             "conversation_id": conversation_id,
-            "message": "Agent message handled"
+            "message": "Agent message handled",
         }

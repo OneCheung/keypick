@@ -3,21 +3,20 @@ KeyPick FastAPI Application
 Main entry point for the API server
 """
 
+import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import logging
 
 from api.config import settings
-from api.routers import crawler, processor, tools
 from api.middleware.error_handler import ErrorHandlerMiddleware
 from api.middleware.logging import LoggingMiddleware
+from api.routers import crawler, processor, tools
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -74,18 +73,14 @@ async def root():
         "name": "KeyPick API",
         "version": "0.1.0",
         "status": "running",
-        "environment": settings.ENVIRONMENT
+        "environment": settings.ENVIRONMENT,
     }
 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "keypick-api",
-        "version": "0.1.0"
-    }
+    return {"status": "healthy", "service": "keypick-api", "version": "0.1.0"}
 
 
 @app.get("/api")
@@ -99,8 +94,8 @@ async def api_info():
             "processor": "/api/process",
             "tools": "/api/tools",
             "docs": "/docs",
-            "health": "/health"
-        }
+            "health": "/health",
+        },
     }
 
 
@@ -112,5 +107,5 @@ if __name__ == "__main__":
         host=settings.HOST,
         port=settings.PORT,
         reload=settings.DEBUG,
-        log_level="info" if settings.DEBUG else "warning"
+        log_level="info" if settings.DEBUG else "warning",
     )

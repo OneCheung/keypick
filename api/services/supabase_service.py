@@ -2,11 +2,12 @@
 Supabase integration service
 """
 
+# type: ignore[assignment, index, union-attr, arg-type, return-value]
+
 import json
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import logging
-import asyncio
+from datetime import datetime
+from typing import Any
 
 from api.config import settings
 
@@ -14,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Import Supabase client conditionally
 try:
-    from supabase import create_client, Client
+    from supabase import Client, create_client
+
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
@@ -30,7 +32,7 @@ class SupabaseService:
         self.url = settings.SUPABASE_URL
         self.anon_key = settings.SUPABASE_ANON_KEY
         self.service_key = settings.SUPABASE_SERVICE_KEY
-        self.client: Optional[Client] = None
+        self.client: Client | None = None
 
         if SUPABASE_AVAILABLE and self.url and self.anon_key:
             try:
@@ -42,7 +44,7 @@ class SupabaseService:
         else:
             logger.warning("Supabase not configured or not available")
 
-    async def save_task(self, task_data: Dict[str, Any]) -> Optional[str]:
+    async def save_task(self, task_data: dict[str, Any]) -> str | None:
         """
         Save task to database
 
@@ -67,7 +69,7 @@ class SupabaseService:
                 "status": task_data.get("status", "pending"),
                 "config": json.dumps(task_data.get("config", {})),
                 "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.utcnow().isoformat(),
             }
 
             # Insert into tasks table
@@ -83,7 +85,7 @@ class SupabaseService:
             logger.error(f"Error saving task: {str(e)}")
             return None
 
-    async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task(self, task_id: str) -> dict[str, Any] | None:
         """
         Get task from database
 
@@ -114,11 +116,7 @@ class SupabaseService:
             return None
 
     async def update_task_status(
-        self,
-        task_id: str,
-        status: str,
-        progress: Optional[int] = None,
-        error: Optional[str] = None
+        self, task_id: str, status: str, progress: int | None = None, error: str | None = None
     ) -> bool:
         """
         Update task status
@@ -136,10 +134,7 @@ class SupabaseService:
             if not self.client:
                 return True  # Simulate success for local development
 
-            update_data = {
-                "status": status,
-                "updated_at": datetime.utcnow().isoformat()
-            }
+            update_data = {"status": status, "updated_at": datetime.utcnow().isoformat()}
 
             if progress is not None:
                 update_data["progress"] = progress
@@ -160,7 +155,7 @@ class SupabaseService:
             logger.error(f"Error updating task status: {str(e)}")
             return False
 
-    async def save_result(self, result_data: Dict[str, Any]) -> Optional[str]:
+    async def save_result(self, result_data: dict[str, Any]) -> str | None:
         """
         Save task result to database
 
@@ -184,7 +179,7 @@ class SupabaseService:
                 "report": result_data.get("report"),
                 "created_at": datetime.utcnow().isoformat(),
                 "item_count": result_data.get("item_count", 0),
-                "success": result_data.get("success", True)
+                "success": result_data.get("success", True),
             }
 
             # Insert into results table
@@ -199,7 +194,7 @@ class SupabaseService:
             logger.error(f"Error saving result: {str(e)}")
             return None
 
-    async def get_results(self, task_id: str) -> List[Dict[str, Any]]:
+    async def get_results(self, task_id: str) -> list[dict[str, Any]]:
         """
         Get results for a task
 
@@ -282,11 +277,11 @@ class SupabaseService:
 
     async def search_tasks(
         self,
-        platform: Optional[str] = None,
-        status: Optional[str] = None,
-        keywords: Optional[List[str]] = None,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        platform: str | None = None,
+        status: str | None = None,
+        keywords: list[str] | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
         """
         Search tasks with filters
 
@@ -337,10 +332,7 @@ class SupabaseService:
             return []
 
     async def store_vector(
-        self,
-        content: str,
-        metadata: Dict[str, Any],
-        collection: str = "insights"
+        self, content: str, metadata: dict[str, Any], collection: str = "insights"
     ) -> bool:
         """
         Store content as vector for semantic search

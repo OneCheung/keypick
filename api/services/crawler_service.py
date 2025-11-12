@@ -2,14 +2,10 @@
 MediaCrawler service wrapper
 """
 
-import os
-import sys
-import json
-import asyncio
-import subprocess
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import logging
+import sys
+from datetime import datetime
+from typing import Any
 
 from api.config import settings
 from api.models.task import TaskStatus
@@ -26,17 +22,17 @@ class CrawlerService:
     """
 
     def __init__(self):
-        self.tasks: Dict[str, Dict[str, Any]] = {}
+        self.tasks: dict[str, dict[str, Any]] = {}
         self.crawler_path = settings.MEDIACRAWLER_PATH
 
     async def execute_crawl(
         self,
         task_id: str,
         platform: str,
-        keywords: List[str],
+        keywords: list[str],
         max_results: int = 100,
-        config: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Execute a crawl task using MediaCrawler
 
@@ -58,46 +54,43 @@ class CrawlerService:
                 "message": f"Starting crawl for {platform}",
                 "started_at": datetime.utcnow().isoformat(),
                 "platform": platform,
-                "keywords": keywords
+                "keywords": keywords,
             }
 
             # For MVP, we'll use a simplified approach
             # In production, this would integrate with MediaCrawler's actual API
             result = await self._run_crawler(
-                platform=platform,
-                keywords=keywords,
-                max_results=max_results,
-                config=config or {}
+                platform=platform, keywords=keywords, max_results=max_results, config=config or {}
             )
 
             # Update task status
-            self.tasks[task_id].update({
-                "status": TaskStatus.COMPLETED,
-                "progress": 100,
-                "message": "Crawl completed successfully",
-                "completed_at": datetime.utcnow().isoformat(),
-                "result": result
-            })
+            self.tasks[task_id].update(
+                {
+                    "status": TaskStatus.COMPLETED,
+                    "progress": 100,
+                    "message": "Crawl completed successfully",
+                    "completed_at": datetime.utcnow().isoformat(),
+                    "result": result,
+                }
+            )
 
             return result
 
         except Exception as e:
             logger.error(f"Crawl task {task_id} failed: {str(e)}")
-            self.tasks[task_id].update({
-                "status": TaskStatus.FAILED,
-                "error": str(e),
-                "message": f"Crawl failed: {str(e)}",
-                "completed_at": datetime.utcnow().isoformat()
-            })
+            self.tasks[task_id].update(
+                {
+                    "status": TaskStatus.FAILED,
+                    "error": str(e),
+                    "message": f"Crawl failed: {str(e)}",
+                    "completed_at": datetime.utcnow().isoformat(),
+                }
+            )
             raise
 
     async def _run_crawler(
-        self,
-        platform: str,
-        keywords: List[str],
-        max_results: int,
-        config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, platform: str, keywords: list[str], max_results: int, config: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Run MediaCrawler for specific platform
 
@@ -120,111 +113,105 @@ class CrawlerService:
             logger.error(f"Crawler execution failed: {str(e)}")
             raise
 
-    async def _crawl_xiaohongshu(
-        self,
-        keywords: List[str],
-        max_results: int
-    ) -> Dict[str, Any]:
+    async def _crawl_xiaohongshu(self, keywords: list[str], max_results: int) -> dict[str, Any]:
         """
         Crawl XiaoHongShu (Little Red Book)
 
         For MVP, returns mock data. Will be replaced with actual MediaCrawler integration.
         """
         # Mock implementation for MVP
-        mock_data = {
+        mock_data: dict[str, Any] = {
             "platform": "xiaohongshu",
             "keywords": keywords,
             "total_results": min(max_results, 50),
-            "items": []
+            "items": [],
         }
 
         # Generate mock items
         for i in range(min(max_results, 10)):
-            mock_data["items"].append({
-                "id": f"xhs_{i+1}",
-                "title": f"Mock XiaoHongShu post about {keywords[0] if keywords else 'topic'}",
-                "content": f"This is mock content for testing. Real content would be crawled from XiaoHongShu.",
-                "author": f"user_{i+1}",
-                "likes": 100 + i * 10,
-                "comments": 5 + i,
-                "created_at": datetime.utcnow().isoformat(),
-                "url": f"https://www.xiaohongshu.com/discovery/item/{i+1}",
-                "tags": keywords[:3] if len(keywords) > 3 else keywords
-            })
+            mock_data["items"].append(
+                {
+                    "id": f"xhs_{i + 1}",
+                    "title": f"Mock XiaoHongShu post about {keywords[0] if keywords else 'topic'}",
+                    "content": "This is mock content for testing. Real content would be crawled from XiaoHongShu.",
+                    "author": f"user_{i + 1}",
+                    "likes": 100 + i * 10,
+                    "comments": 5 + i,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "url": f"https://www.xiaohongshu.com/discovery/item/{i + 1}",
+                    "tags": keywords[:3] if len(keywords) > 3 else keywords,
+                }
+            )
 
         return mock_data
 
-    async def _crawl_weibo(
-        self,
-        keywords: List[str],
-        max_results: int
-    ) -> Dict[str, Any]:
+    async def _crawl_weibo(self, keywords: list[str], max_results: int) -> dict[str, Any]:
         """
         Crawl Weibo
 
         For MVP, returns mock data. Will be replaced with actual MediaCrawler integration.
         """
         # Mock implementation for MVP
-        mock_data = {
+        mock_data: dict[str, Any] = {
             "platform": "weibo",
             "keywords": keywords,
             "total_results": min(max_results, 50),
-            "items": []
+            "items": [],
         }
 
         # Generate mock items
         for i in range(min(max_results, 10)):
-            mock_data["items"].append({
-                "id": f"wb_{i+1}",
-                "content": f"Mock Weibo post about {keywords[0] if keywords else 'topic'}",
-                "author": f"weibo_user_{i+1}",
-                "reposts": 50 + i * 5,
-                "comments": 10 + i * 2,
-                "likes": 200 + i * 20,
-                "created_at": datetime.utcnow().isoformat(),
-                "url": f"https://weibo.com/status/{i+1}",
-                "hashtags": [f"#{kw}" for kw in keywords[:2]]
-            })
+            mock_data["items"].append(
+                {
+                    "id": f"wb_{i + 1}",
+                    "content": f"Mock Weibo post about {keywords[0] if keywords else 'topic'}",
+                    "author": f"weibo_user_{i + 1}",
+                    "reposts": 50 + i * 5,
+                    "comments": 10 + i * 2,
+                    "likes": 200 + i * 20,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "url": f"https://weibo.com/status/{i + 1}",
+                    "hashtags": [f"#{kw}" for kw in keywords[:2]],
+                }
+            )
 
         return mock_data
 
-    async def _crawl_douyin(
-        self,
-        keywords: List[str],
-        max_results: int
-    ) -> Dict[str, Any]:
+    async def _crawl_douyin(self, keywords: list[str], max_results: int) -> dict[str, Any]:
         """
         Crawl Douyin (TikTok China)
 
         For MVP, returns mock data. Will be replaced with actual MediaCrawler integration.
         """
         # Mock implementation for MVP
-        mock_data = {
+        mock_data: dict[str, Any] = {
             "platform": "douyin",
             "keywords": keywords,
             "total_results": min(max_results, 50),
-            "items": []
+            "items": [],
         }
 
         # Generate mock items
         for i in range(min(max_results, 10)):
-            mock_data["items"].append({
-                "id": f"dy_{i+1}",
-                "title": f"Mock Douyin video about {keywords[0] if keywords else 'topic'}",
-                "description": f"This is a mock video description for testing purposes.",
-                "author": f"douyin_creator_{i+1}",
-                "views": 10000 + i * 1000,
-                "likes": 500 + i * 50,
-                "shares": 20 + i * 2,
-                "created_at": datetime.utcnow().isoformat(),
-                "url": f"https://www.douyin.com/video/{i+1}",
-                "music": f"trending_sound_{i+1}",
-                "tags": keywords[:3] if len(keywords) > 3 else keywords
-            })
+            mock_data["items"].append(
+                {
+                    "id": f"dy_{i + 1}",
+                    "title": f"Mock Douyin video about {keywords[0] if keywords else 'topic'}",
+                    "description": "This is a mock video description for testing purposes.",
+                    "author": f"douyin_creator_{i + 1}",
+                    "views": 10000 + i * 1000,
+                    "likes": 500 + i * 50,
+                    "shares": 20 + i * 2,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "url": f"https://www.douyin.com/video/{i + 1}",
+                    "music": f"trending_sound_{i + 1}",
+                    "tags": keywords[:3] if len(keywords) > 3 else keywords,
+                }
+            )
 
         return mock_data
 
-    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """
         Get task status and results
 

@@ -2,11 +2,10 @@
 Langfuse integration service for LLM observability
 """
 
-import json
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import logging
-import asyncio
+from collections.abc import Callable
+from datetime import datetime
+from typing import Any
 
 from api.config import settings
 
@@ -15,6 +14,7 @@ logger = logging.getLogger(__name__)
 # Import Langfuse client conditionally
 try:
     from langfuse import Langfuse
+
     LANGFUSE_AVAILABLE = True
 except ImportError:
     LANGFUSE_AVAILABLE = False
@@ -35,9 +35,7 @@ class LangfuseService:
         if LANGFUSE_AVAILABLE and self.public_key and self.secret_key:
             try:
                 self.client = Langfuse(
-                    public_key=self.public_key,
-                    secret_key=self.secret_key,
-                    host=self.host
+                    public_key=self.public_key, secret_key=self.secret_key, host=self.host
                 )
                 logger.info("Langfuse client initialized successfully")
             except Exception as e:
@@ -52,11 +50,11 @@ class LangfuseService:
         input_data: Any,
         output_data: Any,
         model: str = "unknown",
-        tokens: Optional[Dict[str, int]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None
-    ) -> Optional[str]:
+        tokens: dict[str, int] | None = None,
+        metadata: dict[str, Any] | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+    ) -> str | None:
         """
         Trace an LLM call
 
@@ -82,21 +80,17 @@ class LangfuseService:
                 name=name,
                 user_id=user_id,
                 session_id=session_id,
-                metadata={
-                    "service": "keypick",
-                    "model": model,
-                    **(metadata or {})
-                }
+                metadata={"service": "keypick", "model": model, **(metadata or {})},
             )
 
             # Add generation span
-            generation = trace.generation(
+            trace.generation(
                 name=f"{name}_generation",
                 model=model,
                 input=input_data,
                 output=output_data,
                 usage=tokens,
-                metadata=metadata
+                metadata=metadata,
             )
 
             # Flush to ensure data is sent
@@ -113,8 +107,8 @@ class LangfuseService:
         trace_id: str,
         name: str,
         value: float,
-        comment: Optional[str] = None,
-        data_type: str = "NUMERIC"
+        comment: str | None = None,
+        data_type: str = "NUMERIC",
     ) -> bool:
         """
         Add a score to a trace
@@ -134,11 +128,7 @@ class LangfuseService:
                 return False
 
             self.client.score(
-                trace_id=trace_id,
-                name=name,
-                value=value,
-                comment=comment,
-                data_type=data_type
+                trace_id=trace_id, name=name, value=value, comment=comment, data_type=data_type
             )
 
             self.client.flush()
@@ -152,12 +142,12 @@ class LangfuseService:
         self,
         endpoint: str,
         method: str,
-        request_data: Dict[str, Any],
-        response_data: Dict[str, Any],
+        request_data: dict[str, Any],
+        response_data: dict[str, Any],
         status_code: int,
         duration_ms: float,
-        user_id: Optional[str] = None
-    ) -> Optional[str]:
+        user_id: str | None = None,
+    ) -> str | None:
         """
         Trace an API call
 
@@ -185,19 +175,16 @@ class LangfuseService:
                     "endpoint": endpoint,
                     "method": method,
                     "status_code": status_code,
-                    "duration_ms": duration_ms
-                }
+                    "duration_ms": duration_ms,
+                },
             )
 
             # Add span for the API call
-            span = trace.span(
+            trace.span(
                 name="api_request",
                 input=request_data,
                 output=response_data,
-                metadata={
-                    "status_code": status_code,
-                    "duration_ms": duration_ms
-                }
+                metadata={"status_code": status_code, "duration_ms": duration_ms},
             )
 
             self.client.flush()
@@ -211,12 +198,12 @@ class LangfuseService:
         self,
         task_id: str,
         platform: str,
-        keywords: List[str],
+        keywords: list[str],
         result_count: int,
         success: bool,
         duration_s: float,
-        error: Optional[str] = None
-    ) -> Optional[str]:
+        error: str | None = None,
+    ) -> str | None:
         """
         Trace a crawler task execution
 
@@ -246,19 +233,16 @@ class LangfuseService:
                     "result_count": result_count,
                     "success": success,
                     "duration_s": duration_s,
-                    "error": error
-                }
+                    "error": error,
+                },
             )
 
             # Add span for the crawl operation
-            span = trace.span(
+            trace.span(
                 name="crawl_execution",
                 input={"platform": platform, "keywords": keywords},
                 output={"result_count": result_count, "success": success},
-                metadata={
-                    "duration_s": duration_s,
-                    "error": error
-                }
+                metadata={"duration_s": duration_s, "error": error},
             )
 
             # Auto-score based on success
@@ -280,8 +264,8 @@ class LangfuseService:
         input_count: int,
         output_count: int,
         duration_ms: float,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Optional[str]:
+        metadata: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         Trace data processing operations
 
@@ -307,8 +291,8 @@ class LangfuseService:
                     "input_count": input_count,
                     "output_count": output_count,
                     "duration_ms": duration_ms,
-                    **(metadata or {})
-                }
+                    **(metadata or {}),
+                },
             )
 
             # Calculate efficiency score
@@ -324,10 +308,8 @@ class LangfuseService:
             return None
 
     async def get_metrics(
-        self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+        self, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[str, Any]:
         """
         Get aggregated metrics
 
@@ -348,7 +330,7 @@ class LangfuseService:
 
             return {
                 "note": "Metrics available in Langfuse dashboard",
-                "dashboard_url": f"{self.host}/project"
+                "dashboard_url": f"{self.host}/project",
             }
 
         except Exception as e:
@@ -358,8 +340,8 @@ class LangfuseService:
     async def create_dataset(
         self,
         name: str,
-        description: Optional[str] = None,
-        items: Optional[List[Dict[str, Any]]] = None
+        description: str | None = None,
+        items: list[dict[str, Any]] | None = None,
     ) -> bool:
         """
         Create a dataset for evaluation
@@ -377,9 +359,9 @@ class LangfuseService:
                 return False
 
             # Create dataset
-            dataset = self.client.create_dataset(
+            self.client.create_dataset(
                 name=name,
-                description=description or f"KeyPick dataset created at {datetime.utcnow()}"
+                description=description or f"KeyPick dataset created at {datetime.utcnow()}",
             )
 
             # Add items if provided
@@ -389,7 +371,7 @@ class LangfuseService:
                         dataset_name=name,
                         input=item.get("input"),
                         expected_output=item.get("expected_output"),
-                        metadata=item.get("metadata")
+                        metadata=item.get("metadata"),
                     )
 
             self.client.flush()
@@ -400,11 +382,8 @@ class LangfuseService:
             return False
 
     async def run_evaluation(
-        self,
-        dataset_name: str,
-        model: str,
-        eval_function: callable
-    ) -> Dict[str, Any]:
+        self, dataset_name: str, model: str, eval_function: Callable[..., Any]
+    ) -> dict[str, Any]:
         """
         Run evaluation on a dataset
 
@@ -427,7 +406,7 @@ class LangfuseService:
                 "dataset": dataset_name,
                 "model": model,
                 "timestamp": datetime.utcnow().isoformat(),
-                "note": "Full evaluation requires implementation"
+                "note": "Full evaluation requires implementation",
             }
 
             return results

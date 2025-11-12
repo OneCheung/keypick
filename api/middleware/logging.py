@@ -2,10 +2,11 @@
 Logging middleware
 """
 
+import logging
 import time
 import uuid
-import logging
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -36,7 +37,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         # Process request and measure time
         start_time = time.time()
         try:
-            response = await call_next(request)
+            response: Response = await call_next(request)  # type: ignore[assignment, no-any-return]
             process_time = round(time.time() - start_time, 3)
 
             # Log response
@@ -54,8 +55,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             process_time = round(time.time() - start_time, 3)
             logger.error(
-                f"[{request_id}] {method} {url} - "
-                f"Error: {str(e)} - "
-                f"Duration: {process_time}s"
+                f"[{request_id}] {method} {url} - Error: {str(e)} - Duration: {process_time}s"
             )
             raise

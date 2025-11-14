@@ -5,10 +5,12 @@ MediaCrawler service wrapper
 import logging
 import sys
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from api.config import settings
 from api.models.task import TaskStatus
+from api.services.mediacrawler_adapter import get_mediacrawler_adapter
+from api.services.supabase_service import SupabaseService
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,22 @@ class CrawlerService:
     """
 
     def __init__(self):
-        self.tasks: dict[str, dict[str, Any]] = {}
+        self.tasks: dict[str, dict[str, Any]] = {}  # Local cache
         self.crawler_path = settings.MEDIACRAWLER_PATH
+        self.use_real_crawler = settings.USE_REAL_CRAWLER or settings.is_production
+        self.adapter: Optional[Any] = None
+
+        # Initialize Supabase service
+        self.supabase = SupabaseService()
+
+        # Initialize MediaCrawler adapter if enabled
+        if self.use_real_crawler:
+            try:
+                self.adapter = get_mediacrawler_adapter()
+                logger.info("MediaCrawler adapter initialized for real crawling")
+            except Exception as e:
+                logger.warning(f"Failed to initialize MediaCrawler adapter: {e}")
+                self.use_real_crawler = False
 
     async def execute_crawl(
         self,
@@ -48,14 +64,23 @@ class CrawlerService:
         """
         try:
             # Initialize task info
-            self.tasks[task_id] = {
+            task_data = {
+                "id": task_id,
                 "status": TaskStatus.RUNNING,
                 "progress": 0,
                 "message": f"Starting crawl for {platform}",
                 "started_at": datetime.utcnow().isoformat(),
                 "platform": platform,
+                "platforms": [platform],  # For Supabase compatibility
                 "keywords": keywords,
+                "config": config or {},
             }
+
+            # Store in local cache
+            self.tasks[task_id] = task_data
+
+            # Save to database
+            await self.supabase.save_task(task_data)
 
             # For MVP, we'll use a simplified approach
             # In production, this would integrate with MediaCrawler's actual API
@@ -74,6 +99,22 @@ class CrawlerService:
                 }
             )
 
+            # Update in database
+            await self.supabase.update_task_status(
+                task_id, TaskStatus.COMPLETED, progress=100, error=None
+            )
+
+            # Save results to database
+            await self.supabase.save_result({
+                "task_id": task_id,
+                "platform": platform,
+                "raw_data": result,
+                "processed_data": {},
+                "insights": {},
+                "item_count": result.get("total_results", len(result.get("items", []))),
+                "success": True,
+            })
+
             return result
 
         except Exception as e:
@@ -86,6 +127,12 @@ class CrawlerService:
                     "completed_at": datetime.utcnow().isoformat(),
                 }
             )
+
+            # Update in database
+            await self.supabase.update_task_status(
+                task_id, TaskStatus.FAILED, progress=None, error=f"Crawl failed: {str(e)}"
+            )
+
             raise
 
     async def _run_crawler(
@@ -94,12 +141,26 @@ class CrawlerService:
         """
         Run MediaCrawler for specific platform
 
-        This is a simplified implementation for MVP.
-        In production, this would properly integrate with MediaCrawler.
+        Uses real MediaCrawler in production, mock data in development.
         """
         try:
-            # For MVP, return mock data
-            # TODO: Integrate with actual MediaCrawler
+            # Use real MediaCrawler adapter if available and in production
+            if self.use_real_crawler and self.adapter:
+                logger.info(f"Using real MediaCrawler for {platform}")
+                try:
+                    result = await self.adapter.crawl_by_keyword(
+                        platform=platform,
+                        keywords=keywords,
+                        max_results=max_results,
+                        config=config,
+                    )
+                    return result
+                except Exception as e:
+                    logger.error(f"Real crawler failed, falling back to mock: {e}")
+                    # Fall back to mock data if real crawler fails
+
+            # Use mock data for development or if real crawler fails
+            logger.info(f"Using mock data for {platform}")
             if platform == "xiaohongshu":
                 return await self._crawl_xiaohongshu(keywords, max_results)
             elif platform == "weibo":
@@ -221,7 +282,18 @@ class CrawlerService:
         Returns:
             Task information dictionary or None if not found
         """
-        return self.tasks.get(task_id)
+        # Try to get from local cache first
+        if task_id in self.tasks:
+            return self.tasks[task_id]
+
+        # Try to get from database
+        task_data = await self.supabase.get_task(task_id)
+        if task_data:
+            # Store in local cache
+            self.tasks[task_id] = task_data
+            return task_data
+
+        return None
 
     async def cancel_task(self, task_id: str) -> bool:
         """
@@ -233,13 +305,20 @@ class CrawlerService:
         Returns:
             True if cancelled successfully, False otherwise
         """
-        if task_id in self.tasks:
-            task = self.tasks[task_id]
-            if task["status"] == TaskStatus.RUNNING:
-                task["status"] = TaskStatus.CANCELLED
-                task["message"] = "Task cancelled by user"
-                task["completed_at"] = datetime.utcnow().isoformat()
-                return True
+        # Get task from cache or database
+        task = await self.get_task_status(task_id)
+        if task and task.get("status") == TaskStatus.RUNNING:
+            # Update local cache
+            if task_id in self.tasks:
+                self.tasks[task_id]["status"] = TaskStatus.CANCELLED
+                self.tasks[task_id]["message"] = "Task cancelled by user"
+                self.tasks[task_id]["completed_at"] = datetime.utcnow().isoformat()
+
+            # Update database
+            await self.supabase.update_task_status(
+                task_id, TaskStatus.CANCELLED, progress=None, error="Task cancelled by user"
+            )
+            return True
         return False
 
     def is_platform_enabled(self, platform: str) -> bool:

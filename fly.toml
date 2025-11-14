@@ -18,7 +18,6 @@ primary_region = "sin"  # Singapore (close to China)
   auto_rollback = true
 
 [http_service]
-  processes = ["app"]  # Use the "app" process defined in [processes]
   internal_port = 8080
   force_https = true
   auto_stop_machines = true
@@ -43,7 +42,7 @@ primary_region = "sin"  # Singapore (close to China)
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory_mb = 512  # Increase if needed
+  memory_mb = 1024  # Increased for Chromium browser requirements
 
 # Persistent storage for logs and temp files
 [mounts]
@@ -51,8 +50,9 @@ primary_region = "sin"  # Singapore (close to China)
   destination = "/data"
 
 # Process groups
-[processes]
-  app = "uvicorn api.main:app --host 0.0.0.0 --port 8080"
+# Using ENTRYPOINT in Dockerfile instead
+# [processes]
+#   app = "uvicorn api.main:app --host 0.0.0.0 --port 8080"
 
 # Metrics endpoint for monitoring
 [metrics]

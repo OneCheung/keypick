@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # MediaCrawler configuration
     MEDIACRAWLER_PATH: str = Field(default="./MediaCrawler", env="MEDIACRAWLER_PATH")  # type: ignore[call-overload]
     MEDIACRAWLER_TIMEOUT: int = Field(default=3600, env="MEDIACRAWLER_TIMEOUT")  # type: ignore[call-overload]
+    USE_REAL_CRAWLER: bool = Field(default=False, env="USE_REAL_CRAWLER")  # type: ignore[call-overload]
+    ENABLE_CDP_MODE: bool = Field(default=True, env="ENABLE_CDP_MODE")  # type: ignore[call-overload]
+    CDP_DEBUG_PORT: int = Field(default=9222, env="CDP_DEBUG_PORT")  # type: ignore[call-overload]
 
     # API Security
     API_KEY_HEADER: str = Field(default="X-API-Key", env="API_KEY_HEADER")  # type: ignore[call-overload]

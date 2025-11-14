@@ -126,12 +126,20 @@ git commit -m "Add fly.toml for deployment"
 #### 1.5.4 首次手动部署（初始化）
 ```bash
 # 首次部署需要手动执行一次
+# 注意：fly deploy 会使用本地代码构建和部署，不是 GitHub 的代码
+# 确保本地代码是最新的，或者先提交到 GitHub
 fly deploy
 
 # 检查状态
 fly status
 fly logs
 ```
+
+> **重要提示**：
+> - `fly deploy`（本地命令）：使用**本地代码**构建 Docker 镜像并部署
+> - GitHub Actions 自动部署：使用 **GitHub 仓库的代码**构建和部署
+> - 如果本地有未提交的修改，`fly deploy` 会部署这些修改
+> - 建议：使用 GitHub Actions 自动部署，确保部署的是已提交的代码
 
 #### 1.5.5 自动部署
 配置完成后，每次推送到 `main` 分支时，GitHub Actions 会自动：

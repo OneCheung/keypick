@@ -209,3 +209,47 @@ __marimo__/
 # uv
 .uv/
 uv.lock
+
+# KeyPick specific
+# MediaCrawler data and browser cache
+MediaCrawler/data/
+MediaCrawler/browser_data/
+MediaCrawler/logs/
+MediaCrawler/*.log
+browser_data/
+
+# Test and temporary files
+test_*.py
+test_*.sh
+temp_*
+tmp_*
+*.tmp
+
+# Local development files
+.env.local
+.env.development
+.env.production
+
+# Fly.io
+fly.toml.backup
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.pyc
+__pycache__/
+dist/
+build/

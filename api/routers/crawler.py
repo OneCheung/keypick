@@ -100,7 +100,7 @@ async def execute_crawl(request: CrawlRequest, background_tasks: BackgroundTasks
             sort_by=request.sort_by,
             include_comments=request.include_comments,
             crawl_author_details=request.crawl_author_details,
-            max_comments_per_post=request.max_comments_per_post if request.include_comments else 0,
+            max_comments_per_post=request.max_comments_per_post if request.max_comments_per_post else 50,
             limit=request.limit or request.max_results,
             offset=request.offset,
             min_likes=request.min_likes,

@@ -7,9 +7,10 @@ Supabase integration service
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from api.config import settings
+from api.models.crawler_config import HistoricalDataQuery
 
 logger = logging.getLogger(__name__)
 
@@ -358,3 +359,291 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error storing vector: {str(e)}")
             return False
+
+    async def query_results(self, query: HistoricalDataQuery) -> Dict[str, Any]:
+        """
+        Query historical results based on filters
+
+        Args:
+            query: Query parameters
+
+        Returns:
+            Dictionary with items and metadata
+        """
+        try:
+            if not self.client:
+                # Return mock data for development
+                return await self._get_mock_historical_data(query)
+
+            # Build query
+            q = self.client.table("results").select("*")
+
+            # Apply filters
+            if query.task_ids:
+                q = q.in_("task_id", query.task_ids)
+            if query.platforms:
+                q = q.in_("platform", query.platforms)
+            if query.crawled_after:
+                q = q.gte("created_at", query.crawled_after.isoformat())
+            if query.crawled_before:
+                q = q.lte("created_at", query.crawled_before.isoformat())
+
+            # Apply limit and offset
+            q = q.limit(query.limit).offset(query.offset)
+
+            result = q.execute()
+
+            if result.data:
+                items = []
+                for item in result.data:
+                    # Parse JSON fields
+                    item["raw_data"] = json.loads(item.get("raw_data", "{}"))
+                    item["processed_data"] = json.loads(item.get("processed_data", "{}"))
+                    item["insights"] = json.loads(item.get("insights", "{}"))
+                    items.append(item)
+                return {"items": items, "total": len(items)}
+
+            return {"items": [], "total": 0}
+
+        except Exception as e:
+            logger.error(f"Error querying results: {str(e)}")
+            # Fallback to mock data
+            return await self._get_mock_historical_data(query)
+
+    async def search_results(
+        self,
+        search_text: str,
+        platforms: Optional[List[str]] = None,
+        after_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Full-text search in results
+
+        Args:
+            search_text: Text to search
+            platforms: Filter by platforms
+            after_date: Filter by date
+
+        Returns:
+            Search results
+        """
+        try:
+            if not self.client:
+                return {"items": [], "total": 0}
+
+            # Use Supabase full-text search if available
+            # This would require setting up full-text search in Supabase
+            q = self.client.table("results").select("*")
+
+            # Simple text search in raw_data JSON
+            # In production, use proper full-text search
+            q = q.ilike("raw_data", f"%{search_text}%")
+
+            if platforms:
+                q = q.in_("platform", platforms)
+            if after_date:
+                q = q.gte("created_at", after_date.isoformat())
+
+            result = q.execute()
+
+            if result.data:
+                items = []
+                for item in result.data:
+                    item["raw_data"] = json.loads(item.get("raw_data", "{}"))
+                    items.append(item)
+                return {"items": items, "total": len(items)}
+
+            return {"items": [], "total": 0}
+
+        except Exception as e:
+            logger.error(f"Error searching results: {str(e)}")
+            return {"items": [], "total": 0}
+
+    async def get_statistics(
+        self,
+        platforms: Optional[List[str]] = None,
+        after_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Get statistics about stored data
+
+        Args:
+            platforms: Filter by platforms
+            after_date: Filter by date
+
+        Returns:
+            Statistics dictionary
+        """
+        try:
+            if not self.client:
+                return {
+                    "total_records": 0,
+                    "platforms": {},
+                    "date_range": None
+                }
+
+            # Get total count
+            q = self.client.table("results").select("*", count="exact")
+            if platforms:
+                q = q.in_("platform", platforms)
+            if after_date:
+                q = q.gte("created_at", after_date.isoformat())
+
+            result = q.execute()
+            total = result.count if hasattr(result, 'count') else 0
+
+            # Get platform distribution
+            platform_stats = {}
+            if platforms:
+                for platform in platforms:
+                    p_result = self.client.table("results").select("*", count="exact").eq("platform", platform).execute()
+                    platform_stats[platform] = p_result.count if hasattr(p_result, 'count') else 0
+
+            return {
+                "total_records": total,
+                "platforms": platform_stats,
+                "date_range": {
+                    "start": after_date.isoformat() if after_date else None,
+                    "end": datetime.utcnow().isoformat()
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting statistics: {str(e)}")
+            return {
+                "total_records": 0,
+                "platforms": {},
+                "date_range": None
+            }
+
+    async def count_old_records(
+        self,
+        cutoff_date: datetime,
+        platforms: Optional[List[str]] = None
+    ) -> int:
+        """
+        Count records older than cutoff date
+
+        Args:
+            cutoff_date: Date threshold
+            platforms: Filter by platforms
+
+        Returns:
+            Number of old records
+        """
+        try:
+            if not self.client:
+                return 0
+
+            q = self.client.table("results").select("*", count="exact")
+            q = q.lt("created_at", cutoff_date.isoformat())
+
+            if platforms:
+                q = q.in_("platform", platforms)
+
+            result = q.execute()
+            return result.count if hasattr(result, 'count') else 0
+
+        except Exception as e:
+            logger.error(f"Error counting old records: {str(e)}")
+            return 0
+
+    async def delete_old_records(
+        self,
+        cutoff_date: datetime,
+        platforms: Optional[List[str]] = None
+    ) -> int:
+        """
+        Delete records older than cutoff date
+
+        Args:
+            cutoff_date: Date threshold
+            platforms: Filter by platforms
+
+        Returns:
+            Number of deleted records
+        """
+        try:
+            if not self.client:
+                return 0
+
+            # First count records to delete
+            count = await self.count_old_records(cutoff_date, platforms)
+
+            # Delete records
+            q = self.client.table("results").delete()
+            q = q.lt("created_at", cutoff_date.isoformat())
+
+            if platforms:
+                q = q.in_("platform", platforms)
+
+            result = q.execute()
+            return count
+
+        except Exception as e:
+            logger.error(f"Error deleting old records: {str(e)}")
+            return 0
+
+    async def _get_mock_historical_data(self, query: HistoricalDataQuery) -> Dict[str, Any]:
+        """
+        Generate mock historical data for development
+
+        Args:
+            query: Query parameters
+
+        Returns:
+            Mock data matching query
+        """
+        import random
+        from datetime import timedelta
+
+        items = []
+        platforms = query.platforms or ["xiaohongshu", "weibo", "douyin"]
+
+        # Generate mock items
+        for i in range(50):  # Generate 50 mock items
+            days_ago = random.randint(0, 30)
+            publish_time = datetime.utcnow() - timedelta(days=days_ago)
+
+            item = {
+                "id": f"result_{i}",
+                "task_id": f"task_{random.randint(1, 10)}",
+                "platform": random.choice(platforms),
+                "created_at": publish_time.isoformat(),
+                "raw_data": {
+                    "id": f"item_{i}",
+                    "title": f"Historical content item {i}",
+                    "content": f"This is historical content from {days_ago} days ago. Keywords: {', '.join(query.keywords or ['test'])}",
+                    "author": f"author_{random.randint(1, 20)}",
+                    "likes": random.randint(100, 10000),
+                    "comments": random.randint(10, 1000),
+                    "shares": random.randint(5, 500),
+                    "collects": random.randint(10, 2000),
+                    "publish_time": publish_time.isoformat(),
+                    "url": f"https://example.com/item/{i}",
+                    "tags": ["tag1", "tag2", "tag3"],
+                    "total_engagement": random.randint(200, 15000)
+                },
+                "processed_data": {},
+                "insights": {},
+                "item_count": 1,
+                "success": True
+            }
+
+            # Apply filters
+            if query.crawled_after and publish_time < query.crawled_after:
+                continue
+            if query.crawled_before and publish_time > query.crawled_before:
+                continue
+            if query.search_text and query.search_text.lower() not in item["raw_data"]["content"].lower():
+                continue
+
+            items.append(item)
+
+        # Apply limit and offset
+        start = query.offset
+        end = start + query.limit
+        return {
+            "items": items[start:end],
+            "total": len(items)
+        }

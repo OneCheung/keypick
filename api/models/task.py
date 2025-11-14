@@ -4,9 +4,10 @@ Task models
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
+from .crawler_config import CrawlConfig
 
 
 class TaskStatus(str, Enum):
@@ -30,6 +31,7 @@ class Task(BaseModel):
     keywords: list[str] = Field(..., description="Search keywords")
     status: TaskStatus = Field(default=TaskStatus.PENDING, description="Task status")
     config: dict[str, Any] = Field(default={}, description="Additional configuration")
+    crawl_config: Optional[CrawlConfig] = Field(default=None, description="Crawl configuration with time range, sorting, and fields")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: datetime | None = Field(default=None)

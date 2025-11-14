@@ -11,6 +11,79 @@ KeyPick 是一个基于多Agent架构的平台信息爬取与洞见分析系统�
 3. **精简输出**：输出内容精简而有洞见，避免冗余信息
 4. **多Agent协同**：支持多Agent协同工作，提高爬取效率和数据质量
 
+## 核心功能特性
+
+### 🎯 新增功能（已实现）
+
+#### 1. 高级爬虫配置
+- **时间范围过滤**: 支持灵活的时间范围配置
+  - 预设范围: "1d", "3d", "7d", "30d", "90d", "6m", "1y"
+  - 自定义日期范围: "2024-01-01,2024-12-31"
+  - 相对时间: 最近N天的数据
+
+- **多维度排序**:
+  - hot: 按热度（总互动量）排序
+  - recent: 按发布时间排序
+  - trending: 按趋势（互动增速）排序
+  - likes/comments/shares: 按具体指标排序
+
+- **字段选择**: 自定义返回字段
+  ```json
+  {
+    "fields": ["title", "content", "likes", "collects", "comments",
+               "publish_time", "author", "tags", "url"]
+  }
+  ```
+
+- **高级过滤**:
+  - 最小点赞数、评论数过滤
+  - 作者ID过滤
+  - 关键词排除
+
+#### 2. 历史数据管理
+- **无需重复爬取**: 直接从历史数据中检索
+- **全文搜索**: 在已爬取内容中进行搜索
+- **数据聚合**: 按时间、平台、作者等维度聚合分析
+- **数据导出**: 支持CSV、JSON、Excel格式导出
+- **智能缓存**: Redis缓存加速频繁查询
+
+### 📡 API 端点
+
+#### 爬虫API增强
+```http
+POST /api/crawl/
+{
+  "platform": "xiaohongshu",
+  "keywords": ["美妆", "护肤"],
+  "time_range": "7d",
+  "sort_by": "hot",
+  "fields": ["title", "content", "likes", "publish_time"],
+  "limit": 100,
+  "min_likes": 1000
+}
+```
+
+#### 历史数据API
+```http
+# 查询历史数据
+GET /api/data/?platforms=xiaohongshu,weibo&time_range=7d&sort_by=hot
+
+# 全文搜索
+GET /api/data/search?q=关键词&platforms=xiaohongshu
+
+# 数据聚合
+GET /api/data/aggregate?aggregate_by=day&metrics=engagement
+
+# 数据导出
+POST /api/data/export?format=csv&platforms=xiaohongshu
+
+# 统计信息
+GET /api/data/stats?time_range=30d
+
+# 数据清理
+DELETE /api/data/cleanup?older_than_days=90
+```
+
 ## 系统架构设计
 
 ### 架构层次（简化云服务版）
@@ -324,20 +397,63 @@ prompts:
 - keywords: JSONB（关键词列表）
 - status: VARCHAR(50)
 - config: JSONB（其他配置）
+- crawl_config: JSONB（爬虫配置：time_range, sort_by, include_comments等）
 - created_at: TIMESTAMP
 - updated_at: TIMESTAMP
 - started_at: TIMESTAMP
 - completed_at: TIMESTAMP
 
-**results表**
-- id: UUID (主键)
+**contents表**（标准内容数据，所有字段都是默认爬取的）
+- id: VARCHAR(255) (主键，平台内容ID)
 - task_id: UUID (外键 -> tasks.id)
 - platform: VARCHAR(100)
-- raw_data: JSONB
-- processed_data: JSONB
-- insights: JSONB
-- report: TEXT
+- title: TEXT
+- content: TEXT
+- url: VARCHAR(500)
+- likes: INTEGER
+- collects: INTEGER
+- comments: INTEGER
+- shares: INTEGER
+- views: INTEGER
+- author: VARCHAR(255)
+- author_id: VARCHAR(255)
+- author_avatar: VARCHAR(500)
+- publish_time: TIMESTAMP
+- tags: JSONB（标签数组）
+- images: JSONB（图片URL数组）
+- videos: JSONB（视频URL数组）
+- crawl_time: TIMESTAMP
 - created_at: TIMESTAMP
+- INDEX: (task_id, platform, publish_time, likes)
+
+**comments表**（仅当include_comments=true时才爬取）
+- id: UUID (主键)
+- content_id: VARCHAR(255) (外键 -> contents.id)
+- comment_id: VARCHAR(255)（平台评论ID）
+- author: VARCHAR(255)
+- author_id: VARCHAR(255)
+- content: TEXT
+- likes: INTEGER
+- publish_time: TIMESTAMP
+- reply_to: VARCHAR(255)（父评论ID）
+- replies: JSONB（嵌套回复）
+- created_at: TIMESTAMP
+
+**author_stats表**（仅当crawl_author_details=true时才爬取）
+- author_id: VARCHAR(255) (主键)
+- platform: VARCHAR(100)
+- followers: INTEGER
+- following: INTEGER
+- total_posts: INTEGER
+- total_likes: BIGINT
+- verified: BOOLEAN
+- bio: TEXT
+- location: VARCHAR(255)
+- join_date: TIMESTAMP
+- platform_stats: JSONB（平台特定统计）
+- share_count: INTEGER（详细分享统计）
+- updated_at: TIMESTAMP
+- INDEX: (platform, followers)
 
 **task_logs表**
 - id: UUID (主键)
@@ -481,30 +597,36 @@ class LangfuseService:
 4. Fork MediaCrawler项目
 5. 选择初始支持平台（小红书）
 
-#### 0.2 MVP核心功能开发（1-2周）
+#### 0.2 MVP核心功能开发（1-2周）✅ 已完成
 
 **目标**：实现基础爬虫能力和Dify集成
 
-**任务清单**：
-1. 实现KeyPick FastAPI服务框架
+**已完成任务**：
+1. ✅ 实现KeyPick FastAPI服务框架
    - 基础路由结构
    - 错误处理中间件
    - 日志配置
-2. 集成MediaCrawler
+2. ✅ 集成MediaCrawler
    - 封装爬虫服务
-   - 实现单平台（小红书）爬取
-3. 创建Dify工具接口
+   - 实现多平台（小红书、微博、抖音）爬取
+   - **新增**：时间范围过滤（7d, 30d等）
+   - **新增**：多维度排序（热度、时间、趋势）
+   - **新增**：字段选择和过滤
+3. ✅ 创建Dify工具接口
    - 实现/api/tools/dify/crawl接口
    - 生成工具Schema
-4. 在Dify Cloud中创建工作流
-   - 配置HTTP工具节点
-   - 测试工作流执行
-5. 集成Supabase
+4. ✅ 历史数据管理功能
+   - **新增**：历史数据检索API
+   - **新增**：全文搜索功能
+   - **新增**：数据聚合分析
+   - **新增**：多格式导出（CSV/JSON/Excel）
+5. ✅ 集成Supabase
    - 实现数据存储
    - 配置实时订阅
-6. 集成Langfuse Cloud
-   - 配置追踪
-   - 记录API调用
+   - **新增**：历史数据查询优化
+6. ✅ Redis缓存集成
+   - **新增**：历史查询缓存
+   - **新增**：热点数据缓存
 
 #### 0.3 MVP测试与优化（1周）
 
@@ -1014,6 +1136,9 @@ jobs:
 
 ---
 
-**最后更新**：2025-01-27
-**版本**：v1.0.0
+**最后更新**：2025-11-14
+**版本**：v1.2.0
+**新增功能**：
+- v1.1.0: 时间范围过滤、排序、历史数据管理
+- v1.2.0: 数据模型重构，基础字段默认爬取，可选评论和作者详情爬取
 

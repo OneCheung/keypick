@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.config import settings
 from api.middleware.error_handler import ErrorHandlerMiddleware
 from api.middleware.logging import LoggingMiddleware
-from api.routers import crawler, processor, tools, cookies
+from api.routers import crawler, processor, tools, cookies, historical
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +65,7 @@ app.include_router(crawler.router, prefix="/api/crawl", tags=["Crawler"])
 app.include_router(processor.router, prefix="/api/process", tags=["Processor"])
 app.include_router(tools.router, prefix="/api/tools", tags=["Tools"])
 app.include_router(cookies.router)  # Cookie management endpoints
+app.include_router(historical.router, prefix="/api/data", tags=["Historical Data"])
 
 
 @app.get("/")
@@ -94,6 +95,7 @@ async def api_info():
             "crawler": "/api/crawl",
             "processor": "/api/process",
             "tools": "/api/tools",
+            "historical": "/api/data",
             "docs": "/docs",
             "health": "/health",
         },
